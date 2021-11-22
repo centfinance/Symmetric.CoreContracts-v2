@@ -163,6 +163,16 @@ export class MultiDistributor {
     return this.instance.connect(sender).unstake(stakingToken.address, amount, sender.address);
   }
 
+  async transferStakedTokens(
+    stakingToken: Token,
+    amount: BigNumberish,
+    recipient: SignerWithAddress,
+    params?: TxParams
+  ): Promise<ContractTransaction> {
+    const sender = params?.from ?? (await getSigner());
+    return this.instance.connect(sender).transferStakedTokens(stakingToken.address, amount, recipient.address);
+  }
+
   async claim(distributions: NAry<string>, params?: TxParams): Promise<ContractTransaction> {
     if (!Array.isArray(distributions)) distributions = [distributions];
     const instance = params?.from ? this.instance.connect(params.from) : this.instance;

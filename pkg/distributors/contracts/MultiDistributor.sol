@@ -413,6 +413,12 @@ contract MultiDistributor is IMultiDistributor, ReentrancyGuard, MultiDistributo
         _updateSubscribedDistributions(stakingToken, msg.sender);
 
         UserStaking storage userStaking = _userStakings[stakingToken][msg.sender];
+
+        _unstakeFromDistributions(userStaking, amount);
+        stakingToken.safeTransfer(receiver, amount);
+    }
+
+    function _unstakeFromDistributions(UserStaking storage userStaking, uint256 amount) internal {
         uint256 currentBalance = userStaking.balance;
         require(currentBalance >= amount, "UNSTAKE_AMOUNT_UNAVAILABLE");
         userStaking.balance = userStaking.balance.sub(amount);
@@ -428,8 +434,38 @@ contract MultiDistributor is IMultiDistributor, ReentrancyGuard, MultiDistributo
             distribution.totalSupply = distribution.totalSupply.sub(amount);
             emit Unstaked(distributionId, msg.sender, amount);
         }
+    }
 
-        stakingToken.safeTransfer(receiver, amount);
+    function transferStakedTokens(
+        IERC20 stakingToken,
+        uint256 amount,
+        address recipient
+    ) public nonReentrant {
+        require(amount > 0, "TRANSFER_AMOUNT_ZERO");
+
+        // Before we reduce the senders's staked balance we need to update all of their subscriptions
+        _updateSubscribedDistributions(stakingToken, msg.sender);
+
+        UserStaking storage userStaking = _userStakings[stakingToken][msg.sender];
+
+        _unstakeFromDistributions(userStaking, amount);
+
+        _updateSubscribedDistributions(stakingToken, recipient);
+
+        UserStaking storage recipientStaking = _userStakings[stakingToken][recipient];
+        recipientStaking.balance = recipientStaking.balance.add(amount);
+
+        EnumerableSet.Bytes32Set storage distributions = recipientStaking.subscribedDistributions;
+        uint256 distributionsLength = distributions.length();
+
+        // We also need to update all distributions the recipient was subscribed to,
+        // adding the staked tokens to their totals.
+        for (uint256 i; i < distributionsLength; i++) {
+            bytes32 distributionId = distributions.unchecked_at(i);
+            Distribution storage distribution = _getDistribution(distributionId);
+            distribution.totalSupply = distribution.totalSupply.add(amount);
+            emit Staked(distributionId, recipient, amount);
+        }
     }
 
     /**
