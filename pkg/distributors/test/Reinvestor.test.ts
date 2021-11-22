@@ -32,28 +32,18 @@ interface Claim {
 describe('Reinvestor', () => {
   let vault: Contract;
   let callbackContract: Contract;
-  let pool: Contract;
-  let tokens: TokenList,
-    token1: Token,
-    token2: Token,
-    orchard: Contract,
-    tokenAddresses: string[];
-  let admin: SignerWithAddress,
-    distributor: SignerWithAddress,
-    claimer1: SignerWithAddress,
-    claimer2: SignerWithAddress,
-    other: SignerWithAddress;
+  let tokens: TokenList, token1: Token, token2: Token, orchard: Contract, tokenAddresses: string[];
+  let admin: SignerWithAddress, distributor: SignerWithAddress, claimer1: SignerWithAddress;
 
   const claimBalance = fp(1);
 
   before('deploy base contracts', async () => {
-    [, admin, distributor, claimer1, claimer2, other] = await ethers.getSigners();
+    [, admin, distributor, claimer1] = await ethers.getSigners();
   });
 
   sharedBeforeEach('set up asset manager and reinvestor', async () => {
     const { contracts } = await setup();
 
-    pool = contracts.pool;
     vault = contracts.vault;
 
     callbackContract = await deploy('Reinvestor', { args: [vault.address] });
@@ -69,17 +59,14 @@ describe('Reinvestor', () => {
     });
     await tokens.mint({ to: distributor.address, amount: tokenInitialBalance });
     await tokens.approve({ to: orchard.address, from: [distributor] });
-
   });
 
   describe('with a distribution', () => {
     sharedBeforeEach(async () => {
-
       const elements = [encodeElement(claimer1.address, claimBalance)];
       const merkleTree = new MerkleTree(elements);
       const root = merkleTree.getHexRoot();
       await orchard.connect(distributor).createDistribution(token1.address, root, claimBalance, bn(1));
-
     });
 
     describe('with a pool to claim into', () => {
@@ -91,7 +78,6 @@ describe('Reinvestor', () => {
       sharedBeforeEach(async () => {
         const elements = [encodeElement(claimer1.address, claimBalance)];
         const merkleTree = new MerkleTree(elements);
-        const root = merkleTree.getHexRoot();
 
         const merkleProof: BytesLike[] = merkleTree.getHexProof(elements[0]);
 
@@ -143,7 +129,15 @@ describe('Reinvestor', () => {
         const calldata = utils.defaultAbiCoder.encode(['(address,bytes32,address[])'], [args]);
 
         const receipt = await (
-          await orchard.connect(claimer1).claimDistributionsWithCallback(claimer1.address, claims, tokenAddresses, callbackContract.address, calldata)
+          await orchard
+            .connect(claimer1)
+            .claimDistributionsWithCallback(
+              claimer1.address,
+              claims,
+              tokenAddresses,
+              callbackContract.address,
+              calldata
+            )
         ).wait();
 
         const deltas = [bn(0), bn(0)];
@@ -162,13 +156,14 @@ describe('Reinvestor', () => {
         const args = [claimer1.address, destinationPoolId, [token1.address]];
         const calldata = utils.defaultAbiCoder.encode(['(address,bytes32,address[])'], [args]);
 
-        await orchard.connect(claimer1).claimDistributionsWithCallback(claimer1.address, claims, tokenAddresses, callbackContract.address, calldata);
+        await orchard
+          .connect(claimer1)
+          .claimDistributionsWithCallback(claimer1.address, claims, tokenAddresses, callbackContract.address, calldata);
         const bptBalanceAfter = await destinationPool.balanceOf(claimer1.address);
         expect(bptBalanceAfter.sub(bptBalanceBefore)).to.be.equalWithError(fp('1'), 2e-3);
       });
 
       describe('createDistribution', () => {
-        let anotherId: string;
         let otherTokens: TokenList;
         let otherToken: Token;
         let allTokenAddresses: string[];
@@ -214,7 +209,16 @@ describe('Reinvestor', () => {
           const calldata = utils.defaultAbiCoder.encode(['(address,bytes32,address[])'], [args]);
 
           await expectBalanceChange(
-            () => orchard.connect(claimer1).claimDistributionsWithCallback(claimer1.address, claims, allTokenAddresses, callbackContract.address, calldata),
+            () =>
+              orchard
+                .connect(claimer1)
+                .claimDistributionsWithCallback(
+                  claimer1.address,
+                  claims,
+                  allTokenAddresses,
+                  callbackContract.address,
+                  calldata
+                ),
             otherTokens,
             [{ account: claimer1, changes: { GRT: ['very-near', claimBalance] } }]
           );
