@@ -34,6 +34,7 @@ import {
   GradualUpdateParams,
   WeightedPoolType,
   VoidResult,
+  TokenCollectedFees,
 } from './types';
 import {
   calculateInvariant,
@@ -65,6 +66,7 @@ export default class WeightedPool {
   vault: Vault;
   poolType: WeightedPoolType;
   swapEnabledOnStart: boolean;
+  managementSwapFeePercentage: BigNumberish;
 
   static async create(params: RawWeightedPoolDeployment = {}): Promise<WeightedPool> {
     return WeightedPoolDeployer.deploy(params);
@@ -79,7 +81,8 @@ export default class WeightedPool {
     assetManagers: string[],
     swapFeePercentage: BigNumberish,
     poolType: WeightedPoolType,
-    swapEnabledOnStart: boolean
+    swapEnabledOnStart: boolean,
+    managementSwapFeePercentage: BigNumberish
   ) {
     this.instance = instance;
     this.poolId = poolId;
@@ -90,6 +93,7 @@ export default class WeightedPool {
     this.swapFeePercentage = swapFeePercentage;
     this.poolType = poolType;
     this.swapEnabledOnStart = swapEnabledOnStart;
+    this.managementSwapFeePercentage = managementSwapFeePercentage;
   }
 
   get address(): string {
@@ -182,12 +186,20 @@ export default class WeightedPool {
     return this.instance.getSample(oracleIndex);
   }
 
+  async getOwner(): Promise<string> {
+    return this.instance.getOwner();
+  }
+
   async getSwapFeePercentage(): Promise<BigNumber> {
     return this.instance.getSwapFeePercentage();
   }
 
   async getSwapEnabled(from: SignerWithAddress): Promise<boolean> {
     return this.instance.connect(from).getSwapEnabled();
+  }
+
+  async getManagementSwapFeePercentage(): Promise<BigNumber> {
+    return this.instance.getManagementSwapFeePercentage();
   }
 
   async getNormalizedWeights(): Promise<BigNumber[]> {
@@ -583,8 +595,18 @@ export default class WeightedPool {
 
   async pause(): Promise<void> {
     const action = await actionId(this.instance, 'setPaused');
-    await this.vault.grantRole(action);
+    await this.vault.grantRoleGlobally(action);
     await this.instance.setPaused(true);
+  }
+
+  async setPaused(paused: boolean): Promise<void> {
+    await this.instance.setPaused(paused);
+  }
+
+  async isPaused(): Promise<boolean> {
+    const result = await this.instance.getPausedState();
+
+    return result.paused;
   }
 
   async enableOracle(txParams: TxParams): Promise<VoidResult> {
@@ -597,6 +619,16 @@ export default class WeightedPool {
   async setSwapEnabled(from: SignerWithAddress, swapEnabled: boolean): Promise<ContractTransaction> {
     const pool = this.instance.connect(from);
     return pool.setSwapEnabled(swapEnabled);
+  }
+
+  async withdrawCollectedManagementFees(
+    from: SignerWithAddress,
+    recipient?: SignerWithAddress
+  ): Promise<ContractTransaction> {
+    if (recipient === undefined) recipient = from;
+
+    const pool = this.instance.connect(from);
+    return pool.withdrawCollectedManagementFees(recipient.address);
   }
 
   async updateWeightsGradually(
@@ -612,5 +644,10 @@ export default class WeightedPool {
   async getGradualWeightUpdateParams(from?: SignerWithAddress): Promise<GradualUpdateParams> {
     const pool = from ? this.instance.connect(from) : this.instance;
     return await pool.getGradualWeightUpdateParams();
+  }
+
+  async getCollectedManagementFees(): Promise<TokenCollectedFees> {
+    const result = await this.instance.getCollectedManagementFees();
+    return { amounts: result.collectedFees, tokenAddresses: result.tokens };
   }
 }

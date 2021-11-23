@@ -1,15 +1,17 @@
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
+import { toNormalizedWeights } from '@balancer-labs/balancer-js';
 
 import { bn, fp } from '../../numbers';
 import { DAY, MONTH } from '../../time';
-import { toNormalizedWeights } from '@balancer-labs/balancer-js';
+import { ZERO_ADDRESS } from '../../constants';
 
 import TokenList from '../tokens/TokenList';
 import { Account } from './types';
 import { RawVaultDeployment, VaultDeployment } from '../vault/types';
-import { RawWeightedPoolDeployment, WeightedPoolDeployment, WeightedPoolType } from '../pools/weighted/types';
 import { RawStablePoolDeployment, StablePoolDeployment } from '../pools/stable/types';
 import { RawLinearPoolDeployment, LinearPoolDeployment } from '../pools/linear/types';
+import { RawStablePhantomPoolDeployment, StablePhantomPoolDeployment } from '../pools/stable-phantom/types';
+import { RawWeightedPoolDeployment, WeightedPoolDeployment, WeightedPoolType } from '../pools/weighted/types';
 import {
   RawTokenApproval,
   RawTokenMint,
@@ -19,7 +21,6 @@ import {
   TokenDeployment,
   RawTokenDeployment,
 } from '../tokens/types';
-import { ZERO_ADDRESS } from '../../constants';
 
 export function computeDecimalsFromIndex(i: number): number {
   // Produces repeating series (18..0)
@@ -56,8 +57,10 @@ export default {
       bufferPeriodDuration,
       oracleEnabled,
       swapEnabledOnStart,
+      managementSwapFeePercentage,
       poolType,
     } = params;
+    if (!params.owner) params.owner = ZERO_ADDRESS;
     if (!tokens) tokens = new TokenList();
     if (!weights) weights = Array(tokens.length).fill(fp(1));
     weights = toNormalizedWeights(weights.map(bn));
@@ -68,6 +71,7 @@ export default {
     if (!assetManagers) assetManagers = Array(tokens.length).fill(ZERO_ADDRESS);
     if (!poolType) poolType = WeightedPoolType.WEIGHTED_POOL;
     if (undefined == swapEnabledOnStart) swapEnabledOnStart = true;
+    if (managementSwapFeePercentage === undefined) managementSwapFeePercentage = fp(0);
     if (poolType === WeightedPoolType.WEIGHTED_POOL_2TOKENS && tokens.length !== 2)
       throw Error('Cannot request custom 2-token pool without 2 tokens in the list');
     return {
@@ -79,6 +83,7 @@ export default {
       bufferPeriodDuration,
       oracleEnabled,
       swapEnabledOnStart,
+      managementSwapFeePercentage,
       owner: params.owner,
       poolType,
     };
@@ -122,19 +127,60 @@ export default {
   },
 
   toLinearPoolDeployment(params: RawLinearPoolDeployment): LinearPoolDeployment {
-    let { lowerTarget, upperTarget, swapFeePercentage, pauseWindowDuration, bufferPeriodDuration } = params;
+    let {
+      lowerTarget,
+      upperTarget,
+      swapFeePercentage,
+      pauseWindowDuration,
+      bufferPeriodDuration,
+      wrappedTokenRateCacheDuration,
+    } = params;
 
     if (!lowerTarget) lowerTarget = bn(0);
     if (!upperTarget) upperTarget = bn(0);
     if (!swapFeePercentage) swapFeePercentage = bn(1e12);
     if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
     if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
+    if (!wrappedTokenRateCacheDuration) wrappedTokenRateCacheDuration = MONTH;
 
     return {
       mainToken: params.mainToken,
       wrappedToken: params.wrappedToken,
       lowerTarget,
       upperTarget,
+      swapFeePercentage,
+      pauseWindowDuration,
+      bufferPeriodDuration,
+      wrappedTokenRateProvider: params.wrappedTokenRateProvider?.address || ZERO_ADDRESS,
+      wrappedTokenRateCacheDuration,
+      owner: params.owner,
+    };
+  },
+
+  toStablePhantomPoolDeployment(params: RawStablePhantomPoolDeployment): StablePhantomPoolDeployment {
+    let {
+      tokens,
+      rateProviders,
+      tokenRateCacheDurations,
+      amplificationParameter,
+      swapFeePercentage,
+      pauseWindowDuration,
+      bufferPeriodDuration,
+    } = params;
+
+    if (!tokens) tokens = new TokenList();
+    if (!rateProviders) rateProviders = Array(tokens.length).fill(ZERO_ADDRESS);
+    if (!tokenRateCacheDurations) tokenRateCacheDurations = Array(tokens.length).fill(DAY);
+    if (!amplificationParameter) amplificationParameter = bn(200);
+    if (!swapFeePercentage) swapFeePercentage = bn(1e12);
+    if (!pauseWindowDuration) pauseWindowDuration = 3 * MONTH;
+    if (!bufferPeriodDuration) bufferPeriodDuration = MONTH;
+
+    return {
+      tokens,
+      rateProviders,
+      tokenRateCacheDurations,
+      amplificationParameter,
       swapFeePercentage,
       pauseWindowDuration,
       bufferPeriodDuration,
@@ -208,6 +254,10 @@ export default {
     return to.flatMap((to) =>
       Array.isArray(from) ? from.map((from) => ({ to, amount, from })) : [{ to, amount, from }]
     );
+  },
+
+  toAddresses(to: Account[]): string[] {
+    return to.map(this.toAddress);
   },
 
   toAddress(to?: Account): string {

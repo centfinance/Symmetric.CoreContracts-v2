@@ -14,7 +14,7 @@ import { deploy } from '@balancer-labs/v2-helpers/src/contract';
 import * as expectEvent from '@balancer-labs/v2-helpers/src/test/expectEvent';
 import { expectBalanceChange } from '@balancer-labs/v2-helpers/src/test/tokenBalance';
 import { advanceTime } from '@balancer-labs/v2-helpers/src/time';
-import { setup, tokenInitialBalance, rewardsDuration } from './MultiRewardsSharedSetup';
+import { setup, tokenInitialBalance, rewardsDuration, rewardsVestingTime } from './MultiDistributorSharedSetup';
 
 describe('Reinvestor', () => {
   let admin: SignerWithAddress, lp: SignerWithAddress, mockAssetManager: SignerWithAddress;
@@ -43,23 +43,24 @@ describe('Reinvestor', () => {
   });
 
   describe('with a stake and a reward', () => {
+    let id: string;
     const rewardAmount = fp(1);
+
     sharedBeforeEach(async () => {
       await stakingContract
         .connect(mockAssetManager)
-        .allowlistRewarder(pool.address, rewardToken.address, mockAssetManager.address);
-      await stakingContract.connect(mockAssetManager).addReward(pool.address, rewardToken.address, rewardsDuration);
+        .createDistribution(pool.address, rewardToken.address, rewardsDuration);
 
       const bptBalance = await pool.balanceOf(lp.address);
 
       await pool.connect(lp).approve(stakingContract.address, bptBalance);
 
-      await stakingContract.connect(lp)['stake(address,uint256)'](pool.address, bptBalance);
+      id = await stakingContract.getDistributionId(pool.address, rewardToken.address, mockAssetManager.address);
+      await stakingContract.connect(lp).subscribeDistributions([id]);
+      await stakingContract.connect(lp).stake(pool.address, bptBalance);
 
-      await stakingContract
-        .connect(mockAssetManager)
-        .notifyRewardAmount(pool.address, rewardToken.address, rewardAmount, mockAssetManager.address);
-      await advanceTime(10);
+      await stakingContract.connect(mockAssetManager).fundDistribution(id, rewardAmount);
+      await advanceTime(rewardsVestingTime);
     });
 
     describe('with a pool to claim into', () => {
@@ -110,11 +111,11 @@ describe('Reinvestor', () => {
         const calldata = utils.defaultAbiCoder.encode(['(address,bytes32,address[])'], [args]);
 
         const receipt = await (
-          await stakingContract.connect(lp).getRewardWithCallback([pool.address], callbackContract.address, calldata)
+          await stakingContract.connect(lp).claimWithCallback([id], callbackContract.address, calldata)
         ).wait();
 
         const deltas = [bn(0), bn(0)];
-        deltas[assets.indexOf(rewardToken.address)] = bn('999999999999999898');
+        deltas[assets.indexOf(rewardToken.address)] = bn('999999999999999498');
 
         expectEvent.inIndirectReceipt(receipt, vault.interface, 'PoolBalanceChanged', {
           poolId: destinationPoolId,
@@ -130,12 +131,13 @@ describe('Reinvestor', () => {
         const args = [lp.address, destinationPoolId, [rewardToken.address]];
         const calldata = utils.defaultAbiCoder.encode(['(address,bytes32,address[])'], [args]);
 
-        await stakingContract.connect(lp).getRewardWithCallback([pool.address], callbackContract.address, calldata);
+        await stakingContract.connect(lp).claimWithCallback([id], callbackContract.address, calldata);
         const bptBalanceAfter = await destinationPool.balanceOf(lp.address);
-        expect(bptBalanceAfter.sub(bptBalanceBefore)).to.equal(bn('998703239790478424'));
+        expect(bptBalanceAfter.sub(bptBalanceBefore)).to.equal(bn('998703239790478024'));
       });
 
-      describe('addReward', () => {
+      describe('create', () => {
+        let anotherId: string;
         let otherRewardTokens: TokenList;
         let otherRewardToken: Token;
 
@@ -143,21 +145,22 @@ describe('Reinvestor', () => {
           otherRewardTokens = await TokenList.create(['GRT'], { sorted: true });
           otherRewardToken = otherRewardTokens.GRT;
 
-          await stakingContract
-            .connect(mockAssetManager)
-            .allowlistRewarder(pool.address, otherRewardToken.address, mockAssetManager.address);
-
           await otherRewardTokens.mint({ to: mockAssetManager, amount: bn(100e18) });
           await otherRewardTokens.approve({ to: stakingContract.address, from: [mockAssetManager] });
 
           await stakingContract
             .connect(mockAssetManager)
-            .addReward(pool.address, otherRewardToken.address, rewardsDuration);
+            .createDistribution(pool.address, otherRewardToken.address, rewardsDuration);
 
-          await stakingContract
-            .connect(mockAssetManager)
-            .notifyRewardAmount(pool.address, otherRewardToken.address, fp(3), mockAssetManager.address);
-          await advanceTime(10);
+          anotherId = await stakingContract.getDistributionId(
+            pool.address,
+            otherRewardToken.address,
+            mockAssetManager.address
+          );
+          await stakingContract.connect(lp).subscribeDistributions([anotherId]);
+
+          await stakingContract.connect(mockAssetManager).fundDistribution(anotherId, fp(3));
+          await advanceTime(rewardsVestingTime);
         });
 
         it('returns rewards that are unused in reinvestment', async () => {
@@ -166,7 +169,7 @@ describe('Reinvestor', () => {
           const calldata = utils.defaultAbiCoder.encode(['(address,bytes32,address[])'], [args]);
 
           await expectBalanceChange(
-            () => stakingContract.connect(lp).getRewardWithCallback([pool.address], callbackContract.address, calldata),
+            () => stakingContract.connect(lp).claimWithCallback([id, anotherId], callbackContract.address, calldata),
             otherRewardTokens,
             [{ account: lp, changes: { GRT: ['very-near', fp(3)] } }]
           );

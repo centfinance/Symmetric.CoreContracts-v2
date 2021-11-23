@@ -1,11 +1,11 @@
+import { BigNumber, Contract } from 'ethers';
 import { SignerWithAddress } from '@nomiclabs/hardhat-ethers/dist/src/signer-with-address';
-import { BigNumber } from 'ethers';
 
+import { Account } from '../../types/types';
 import { BigNumberish } from '../../../numbers';
 
-import Token from '../../tokens/Token';
-import { Account } from '../../types/types';
 import Vault from '../../vault/Vault';
+import Token from '../../tokens/Token';
 
 export type RawLinearPoolDeployment = {
   mainToken: Token;
@@ -15,6 +15,8 @@ export type RawLinearPoolDeployment = {
   swapFeePercentage?: BigNumberish;
   pauseWindowDuration?: BigNumberish;
   bufferPeriodDuration?: BigNumberish;
+  wrappedTokenRateProvider?: Contract;
+  wrappedTokenRateCacheDuration?: BigNumberish;
   owner?: SignerWithAddress;
   admin?: SignerWithAddress;
   from?: SignerWithAddress;
@@ -29,6 +31,8 @@ export type LinearPoolDeployment = {
   swapFeePercentage: BigNumberish;
   pauseWindowDuration: BigNumberish;
   bufferPeriodDuration: BigNumberish;
+  wrappedTokenRateProvider: string;
+  wrappedTokenRateCacheDuration: BigNumberish;
   owner?: SignerWithAddress;
   admin?: SignerWithAddress;
   from?: SignerWithAddress;
@@ -43,4 +47,18 @@ export type SwapLinearPool = {
   from?: SignerWithAddress;
   lastChangeBlock?: BigNumberish;
   data?: string;
+};
+
+export type MultiExitGivenInLinearPool = {
+  bptIn: BigNumberish;
+  recipient?: Account;
+  from?: SignerWithAddress;
+  currentBalances?: BigNumberish[];
+  protocolFeePercentage?: BigNumberish;
+  lastChangeBlock?: BigNumberish;
+};
+
+export type ExitResult = {
+  amountsOut: BigNumber[];
+  dueProtocolFeeAmounts: BigNumber[];
 };

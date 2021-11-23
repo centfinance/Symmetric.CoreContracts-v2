@@ -7,7 +7,6 @@ import TokenList from '@balancer-labs/v2-helpers/src/models/tokens/TokenList';
 
 import { bn, fp } from '@balancer-labs/v2-helpers/src/numbers';
 import { MAX_UINT256 } from '@balancer-labs/v2-helpers/src/constants';
-import { actionId } from '@balancer-labs/v2-helpers/src/models/misc/actions';
 
 import { deploy } from '@balancer-labs/v2-helpers/src/contract';
 import { WeightedPoolEncoder } from '@balancer-labs/balancer-js';
@@ -60,15 +59,11 @@ const setup = async () => {
   const poolId = await pool.getPoolId();
 
   // Deploy staking contract for pool
-  const distributor = await deploy('v2-distributors/MultiRewards', {
+  const distributor = await deploy('v2-distributors/MultiDistributor', {
     args: [vault.address],
   });
 
   await assetManager.initialize(poolId, distributor.address);
-
-  const action = await actionId(distributor, 'allowlistRewarder');
-  await authorizer.connect(admin).grantRole(action, admin.address);
-  await distributor.connect(admin).allowlistRewarder(pool.address, admin.address, lp.address);
 
   await tokens.mint({ to: lp, amount: tokenInitialBalance });
   await tokens.approve({ to: vault.address, from: [lp] });
@@ -117,14 +112,19 @@ describe('Aave Asset manager', function () {
   });
 
   describe('claimRewards', () => {
+    let id: string;
     const rewardAmount = fp(1);
 
     beforeEach(async () => {
       const bptBalance = await pool.balanceOf(lp.address);
       await pool.connect(lp).approve(distributor.address, bptBalance);
+      id = await distributor.getDistributionId(pool.address, stkAave.address, assetManager.address);
+
+      await distributor.connect(lp).subscribeDistributions([id]);
       await distributor.connect(lp).stake(pool.address, bptBalance.mul(3).div(4));
 
       // Stake half of the BPT to another address
+      await distributor.connect(other).subscribeDistributions([id]);
       await distributor.connect(lp).stakeFor(pool.address, bptBalance.div(4), other.address);
     });
 
@@ -140,7 +140,7 @@ describe('Aave Asset manager', function () {
       await advanceTime(10);
 
       const expectedReward = fp(0.75);
-      const actualReward = await distributor.totalEarned(pool.address, lp.address, stkAave.address);
+      const actualReward = await distributor.getClaimableTokens(id, lp.address);
       expect(expectedReward.sub(actualReward).abs()).to.be.lte(100);
     });
   });

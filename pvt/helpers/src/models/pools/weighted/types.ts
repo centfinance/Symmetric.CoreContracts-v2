@@ -12,7 +12,7 @@ export enum WeightedPoolType {
   WEIGHTED_POOL = 0,
   WEIGHTED_POOL_2TOKENS,
   LIQUIDITY_BOOTSTRAPPING_POOL,
-  INVESTMENT_POOL,
+  MANAGED_POOL,
 }
 
 export type RawWeightedPoolDeployment = {
@@ -24,7 +24,8 @@ export type RawWeightedPoolDeployment = {
   bufferPeriodDuration?: BigNumberish;
   oracleEnabled?: boolean;
   swapEnabledOnStart?: boolean;
-  owner?: SignerWithAddress;
+  managementSwapFeePercentage?: BigNumberish;
+  owner?: string;
   admin?: SignerWithAddress;
   from?: SignerWithAddress;
   vault?: Vault;
@@ -42,7 +43,8 @@ export type WeightedPoolDeployment = {
   poolType: WeightedPoolType;
   oracleEnabled: boolean;
   swapEnabledOnStart: boolean;
-  owner?: SignerWithAddress;
+  managementSwapFeePercentage: BigNumberish;
+  owner?: string;
   admin?: SignerWithAddress;
   from?: SignerWithAddress;
 };
@@ -187,4 +189,9 @@ export type GradualUpdateParams = {
   startTime: BigNumber;
   endTime: BigNumber;
   endWeights: BigNumber[];
+};
+
+export type TokenCollectedFees = {
+  amounts: BigNumber[];
+  tokenAddresses: string[];
 };
