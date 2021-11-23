@@ -1,3 +1,7 @@
+methods {
+	withdraw(address, uint256, address) => NONDET
+}
+
 rule sanity(method f) {
 	env e;
 	calldataarg arg;
