@@ -35,7 +35,12 @@ type SolcConfig = {
     optimizer: {
       enabled: boolean;
       runs?: number;
-    };
+    },
+    evmVersion: string,
+    metadata: {
+      useLiteralContent: boolean;
+    },
+    outputSelection: any;
   };
 };
 
@@ -47,6 +52,31 @@ export const compilers: [SolcConfig] = [
         enabled: true,
         runs: 9999,
       },
+      evmVersion: 'istanbul',
+      metadata: {
+        useLiteralContent: true
+      },
+      outputSelection: {
+        '*': {
+          '*':
+          [
+            'abi',
+            'evm.bytecode',
+            'evm.deployedBytecode',
+            'evm.methodIdentifiers',
+            'metadata',
+            'devdoc',
+            'userdoc',
+            'storageLayout',
+            'evm.methodIdentifiers',
+            'evm.gasEstimates'
+          ],
+          '':
+          [
+            'ast'
+          ]
+        }
+      }
     },
   },
 ];
@@ -62,6 +92,31 @@ export const overrides = (packageName: string): Record<string, SolcConfig> => {
           enabled: true,
           runs: contractSettings[contract].runs,
         },
+        evmVersion: 'istanbul',
+        metadata: {
+          useLiteralContent: true
+        },
+        outputSelection: {
+          '*': {
+            '*':
+            [
+              'abi',
+              'evm.bytecode',
+              'evm.deployedBytecode',
+              'evm.methodIdentifiers',
+              'metadata',
+              'devdoc',
+              'userdoc',
+              'storageLayout',
+              'evm.methodIdentifiers',
+              'evm.gasEstimates'
+            ],
+            '':
+            [
+              'ast'
+            ]
+          }
+        }
       },
     };
   }
