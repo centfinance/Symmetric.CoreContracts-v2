@@ -14,9 +14,9 @@
 
 pragma solidity ^0.7.0;
 
-import "@balancer-labs/v2-solidity-utils/contracts/helpers/Authentication.sol";
-import "@balancer-labs/v2-vault/contracts/interfaces/IAuthorizer.sol";
-import "@balancer-labs/v2-vault/contracts/interfaces/IVault.sol";
+import "../../solidity-utils/contracts/helpers/Authentication.sol";
+import "../../vault/contracts/interfaces/IAuthorizer.sol";
+import "../../vault/contracts/interfaces/IVault.sol";
 
 /**
  * @dev Base authorization layer implementation for MultiDistributor

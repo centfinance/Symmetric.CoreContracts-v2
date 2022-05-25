@@ -15,18 +15,18 @@
 pragma solidity ^0.7.0;
 pragma experimental ABIEncoderV2;
 
-import "@balancer-labs/v2-solidity-utils/contracts/math/FixedPoint.sol";
-import "@balancer-labs/v2-solidity-utils/contracts/helpers/InputHelpers.sol";
-import "@balancer-labs/v2-solidity-utils/contracts/helpers/LogCompression.sol";
-import "@balancer-labs/v2-solidity-utils/contracts/helpers/TemporarilyPausable.sol";
-import "@balancer-labs/v2-solidity-utils/contracts/openzeppelin/ERC20.sol";
+import "../../solidity-utils/contracts/math/FixedPoint.sol";
+import "../../solidity-utils/contracts/helpers/InputHelpers.sol";
+import "../../solidity-utils/contracts/helpers/LogCompression.sol";
+import "../../solidity-utils/contracts/helpers/TemporarilyPausable.sol";
+import "../../solidity-utils/contracts/openzeppelin/ERC20.sol";
 
-import "@balancer-labs/v2-vault/contracts/interfaces/IMinimalSwapInfoPool.sol";
+import "../../vault/contracts/interfaces/IMinimalSwapInfoPool.sol";
 
-import "@balancer-labs/v2-pool-utils/contracts/BasePoolAuthorization.sol";
-import "@balancer-labs/v2-pool-utils/contracts/BalancerPoolToken.sol";
-import "@balancer-labs/v2-pool-utils/contracts/oracle/PoolPriceOracle.sol";
-import "@balancer-labs/v2-pool-utils/contracts/oracle/Buffer.sol";
+import "../../pool-utils/contracts/BasePoolAuthorization.sol";
+import "../../pool-utils/contracts/BalancerPoolToken.sol";
+import "../../pool-utils/contracts/oracle/PoolPriceOracle.sol";
+import "../../pool-utils/contracts/oracle/Buffer.sol";
 
 import "./WeightedMath.sol";
 import "./WeightedOracleMath.sol";
