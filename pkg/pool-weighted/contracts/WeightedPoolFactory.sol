@@ -49,7 +49,7 @@ contract WeightedPoolFactory is BasePoolSplitCodeFactory, FactoryWidePauseWindow
                     symbol,
                     tokens,
                     weights,
-                    assetManagers
+                    assetManagers,
                     swapFeePercentage,
                     pauseWindowDuration,
                     bufferPeriodDuration,
